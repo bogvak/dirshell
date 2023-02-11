@@ -1,10 +1,10 @@
 ## Dirshell
 
-This small application allow to save common used shell command history on folder basis and then quickly recall it with convenient dropdown menu.
+This small application allows to save commonly used shell commands on folder basis and then quickly recall it with convenient dropdown menu.
 
 ![](https://raw.githubusercontent.com/bogvak/dirshell/master/img/demoopt.gif)
 
-Commands to history may be added prefixing command with `dirshell` command, ex
+Commands may be added to list prefixing command with `dirshell` command, ex
 
 ```shell
 >> dirshell terragrunt apply --terragrunt-log-level debug --terragrunt-debug
@@ -25,3 +25,11 @@ More platform may be added by building from source with appropriate build target
 For Windows it could be any folder that was added to system environment variable PATH
 
 For Linux it's recommended to use folder `/usr/local/bin`. Do not forget to assign executable mode for downloaded binary (*chmod +x*).
+
+##### You may rename dirshell and use it under different name
+
+For example you may want to use shorter name but just mind to not override some other existing system command or utility.
+
+**You may filter commands dropdown list**
+
+If your list of folder specific commands is too long but you still want to access some commands quicker - you may start typing in prompt after you run **dirshell** - dropdown will start filtering automatically.
