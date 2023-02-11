@@ -14,7 +14,7 @@ or directly with any code editor by editing `.comhistory` file that stored in ap
 
 ### Platforms supported
 
-Currently app has prebuild binary for two platforms - Windows X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell.exe)) and Linux GNU X86_64 ([link](https://github.com/bogvak/dirshell/latest/releases/download/dirshell)).
+Currently app has prebuild binary for two platforms - Windows X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell.exe)) and Linux GNU X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell)).
 
 More platform may be added by building from source with appropriate build target by your own or if you interested in supporting of some particular platform - don't be shy to contact me directly ([support@bogv.online](mailto: support@bogv.online?subject=Dirshell)), I will do that that for you.
 
