@@ -1,0 +1,3 @@
+# [target.aarch64-unknown-linux-gnu]
+# rustflags = ["-C", "linker-flavor=ld.lld"]
+# linker = "rust-lld"
