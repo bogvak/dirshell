@@ -2,7 +2,7 @@
 
 This small application allow to save common used shell command history on folder basis and then quickly recall it with convenient dropdown menu.
 
-![demoopt](C:\Private\20-RUST\dirshell\img\demoopt.gif)
+![](https://raw.githubusercontent.com/bogvak/dirshell/master/img/demoopt.gif)
 
 Commands to history may be added prefixing command with `dirshell` command, ex
 
