@@ -1,36 +1,43 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs;
-// use std::fs::File;
+use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-// use std::fs::OpenOptions;
+use std::io::BufReader;
 use std::io::prelude::*;
 use std::process::Child;
 use std::process::Command;
-// use std::process::Output;
-// use std::str::SplitWhitespace;
 
 use inquire::InquireError;
 use inquire::Select;
 
-// use std::path::Path;
 
-const exception_commands: &'static [&'static str] = &["echo"];
+const EXCEPTION_COMMANDS: &'static [&'static str] = &["echo"];
+static COM_HISTORY_FILENAME: &str = ".comhistory";
 
-fn get_child_process(dirstring: &str, choice: &str) -> io::Result<Child> {
-    get_child_process_cmd(dirstring, choice, false)
+fn get_child_process(
+    dirstring: &str,
+    choice: &str,
+    env_map: &HashMap<String, String>,
+) -> io::Result<Child> {
+    get_child_process_cmd(dirstring, choice, env_map, false)
 }
 
-fn get_child_process_cmd(dirstring: &str, choice: &str, use_command: bool) -> io::Result<Child> {
-    
+fn get_child_process_cmd(
+    dirstring: &str,
+    choice: &str,
+    env_map: &HashMap<String, String>,
+    use_command: bool,
+) -> io::Result<Child> {
     let mut parts: Vec<&str> = choice.split_whitespace().collect();
-    let use_command_compound = use_command
-        || exception_commands
-            .iter()
-            .any(|&s| s.eq(parts[0]));
+    let use_command_compound = use_command || EXCEPTION_COMMANDS.iter().any(|&s| s.eq(parts[0]));
 
     let command = match use_command_compound {
-        true => {parts.insert(0, "/C"); "cmd"},
+        true => {
+            parts.insert(0, "/C");
+            "cmd"
+        }
         false => parts.remove(0),
     };
 
@@ -40,6 +47,7 @@ fn get_child_process_cmd(dirstring: &str, choice: &str, use_command: bool) -> io
     match Command::new(command)
         .current_dir(dirstring)
         .args(args)
+        .envs(env_map)
         .spawn()
     {
         Ok(child) => Ok(child),
@@ -75,47 +83,125 @@ fn exit(exit_type: &str) {
     }
 }
 
-fn main() -> std::io::Result<()> {
-    const COM_HISTORY_FILENAME: &str = ".comhistory";
+fn search_for_env_files() -> Option<Vec<String>> {
+    let mut result: Vec<String> = vec![];
+    let dir = ".";
+    let ext = "env";
+    let entries = fs::read_dir(dir).unwrap();
+    for entry in entries {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if let Some(file_name) = path.file_name() {
+            if let Some(ext_str) = file_name.to_str() {
+                if ext_str.ends_with(ext) {
+                    if let Some(name) = file_name.to_str() {
+                        result.push(name.to_owned());
+                    }
+                }
+            }
+        }
+    }
+    if !result.is_empty() {
+        Some(result)
+    } else {
+        None
+    }
+}
 
+fn parse_key_value_pairs<'a>(lines: &'a Vec<String>) -> HashMap<&'a str, &'a str> {
+    let mut map = HashMap::new();
+    for line in lines {
+        if let Some((key, value)) = line.split_once('=') {
+            map.insert(key, value);
+        }
+    }
+    map
+}
+
+fn read_env_file(file_path: &str) -> Vec<String> {
+    let file = File::open(file_path).expect("Failed to open enviroment file");
+    let reader = BufReader::new(file);
+    reader
+        .lines()
+        .map(|line| line.expect("Failed to read data from enviroment"))
+        .collect()
+}
+
+fn check_if_command_file_exists() -> bool {
+    match fs::metadata(COM_HISTORY_FILENAME) {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
+fn get_current_directory() -> String {
+    let dir = env::current_dir();
+    match dir {
+        Ok(path) => path.into_os_string().into_string().unwrap(),
+        Err(_) => {
+            exit("err");
+            String::from("value")
+        }
+    }
+}
+
+fn get_env_variables_from_file() -> Option<HashMap<String, String>> {
+    let env_files = search_for_env_files()?;
+    let env_file_name = if env_files.len() == 1 {
+        &env_files[0]
+    } else {
+        let contents: Vec<&str> = env_files.iter().map(|s| &**s).collect();
+        let env_file_name_select: Result<&str, InquireError> = Select::new("envfile::", contents).prompt();        
+        match env_file_name_select {
+            Ok(choice) => choice,
+            Err(_) => return None
+        }
+    };
+
+    let env_lines = read_env_file(env_file_name);
+    let vec_env_lines = env_lines.iter().map(|s| s.to_string()).collect();
+    Some(
+        parse_key_value_pairs(&vec_env_lines)
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
+    )
+}
+
+fn main() -> std::io::Result<()> {
     // Getting commandline arguments
 
     let mut args: Vec<String> = env::args().collect();
     args.drain(0..1);
     let mut mergedargs = args.join(" "); //.trim();
 
-    // Getting current directory
-
-    let dir = env::current_dir();
-    let dirstring = match dir {
-        Ok(path) => path.into_os_string().into_string().unwrap(),
-        Err(_) => {
-            exit("err");
-            String::from("value")
+    let ignore_env = {
+        if mergedargs == "--" {
+            mergedargs = String::from("");
+            true
+        } else {
+            false
         }
     };
+
+    // Getting current directory
+    let dirstring = get_current_directory();
     println!("Current dir: {}", dirstring);
 
-    // Checking if history file exsts in current directory
-
-    let file_exists = match fs::metadata(COM_HISTORY_FILENAME) {
-        Ok(_) => true,
-        Err(_) => false,
-    };
-
-    if !file_exists && mergedargs == "" {
+    if !check_if_command_file_exists() && mergedargs == "" {
         // if no history file and no args - just exit
         exit("ok");
     }
 
+    // Read content of command file
     let contents_str = match read_file(COM_HISTORY_FILENAME) {
         Ok(res) => res,
         Err(_) => vec![],
     };
     let contents: Vec<&str> = contents_str.iter().map(|s| &**s).collect();
-    let line_exists = contents.iter().any(|&s| s.eq(&mergedargs));
+    let command_exists_in_file = contents.iter().any(|&s| s.eq(&mergedargs));
 
-    if line_exists {
+    if command_exists_in_file {
         exit("ok");
     };
 
@@ -133,14 +219,24 @@ fn main() -> std::io::Result<()> {
 
     let ans: Result<&str, InquireError> = Select::new(">>", contents).prompt();
 
+    // looking for .env files in current directory
+    let env_hash = if !ignore_env {
+        match get_env_variables_from_file() {
+            Some(res) => res,
+            None => HashMap::new(),
+        }
+    } else {
+        HashMap::new()
+    };
+
     match ans {
         Ok(choice) => {
             println!("{}", choice);
-            let cmd = match get_child_process(&dirstring, choice) {
+            let cmd = match get_child_process(&dirstring, choice, &env_hash) {
                 Ok(output) => output,
                 Err(_e) => {
                     println!("Retrying with shell: cmd /C {}", choice);
-                    match get_child_process(&dirstring, choice) {
+                    match get_child_process_cmd(&dirstring, choice, &env_hash, true) {
                         Ok(output) => output,
                         Err(_e) => {
                             println!("Something wrong with that command");
