@@ -12,6 +12,14 @@ Commands may be added to list prefixing command with `dirshell` command, ex
 
 or directly with any code editor by editing `.comhistory` file that stored in appropriate folder - **dirshell** keeping commands in that file.
 
+### Environment variables file
+
+if there is files with `.env` extension in current folder - app automatically load environment variables to child process.
+
+If there multiple `.env` files - you will need to select from dropdown menu - which file it's needed to use.
+
+If you do not need to load environment variables - use `dirshell --` command.
+
 ### Platforms supported
 
 Currently app has prebuild binary for two platforms - Windows X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell.exe)) and Linux GNU X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell)).
