@@ -11,6 +11,7 @@ use std::process::Command;
 
 use inquire::InquireError;
 use inquire::Select;
+use inquire::Text;
 
 
 const EXCEPTION_COMMANDS: &'static [&'static str] = &["echo"];
@@ -184,6 +185,15 @@ fn main() -> std::io::Result<()> {
         }
     };
 
+    let needed_to_edit_command = {
+        if mergedargs == "*" {
+            mergedargs = String::from("");
+            true
+        } else {
+            false
+        }
+    };
+
     // Getting current directory
     let dirstring = get_current_directory();
     println!("Current dir: {}", dirstring);
@@ -217,7 +227,17 @@ fn main() -> std::io::Result<()> {
         exit("ok");
     }
 
-    let ans: Result<&str, InquireError> = Select::new(">>", contents).prompt();
+    let mut ans = Select::new(">>", contents).prompt().unwrap_or_default();
+    // if ans.is_empty() { exit("ok") };
+    let inp = if needed_to_edit_command {
+        let mut txt = Text::new("Command: ");
+        txt.initial_value = Some(ans);
+        txt.prompt().unwrap_or_default()
+    } else {
+        "".to_string()
+    };
+    ans = if needed_to_edit_command {&inp} else {ans};
+    if ans.is_empty() { exit("ok") };
 
     // looking for .env files in current directory
     let env_hash = if !ignore_env {
@@ -229,32 +249,27 @@ fn main() -> std::io::Result<()> {
         HashMap::new()
     };
 
-    match ans {
-        Ok(choice) => {
-            println!("{}", choice);
-            let cmd = match get_child_process(&dirstring, choice, &env_hash) {
+    println!("{}", &ans);
+    let cmd = match get_child_process(&dirstring, ans, &env_hash) {
+        Ok(output) => output,
+        Err(_e) => {
+            println!("Retrying with shell: cmd /C {}", ans);
+            match get_child_process_cmd(&dirstring, ans, &env_hash, true) {
                 Ok(output) => output,
                 Err(_e) => {
-                    println!("Retrying with shell: cmd /C {}", choice);
-                    match get_child_process_cmd(&dirstring, choice, &env_hash, true) {
-                        Ok(output) => output,
-                        Err(_e) => {
-                            println!("Something wrong with that command");
-                            panic!()
-                        }
-                    }
-                }
-            };
-
-            let _output = match cmd.wait_with_output() {
-                Ok(output) => output,
-                Err(_e) => {
-                    println!("Failed to wait for command: {}", choice);
+                    println!("Something wrong with that command");
                     panic!()
                 }
-            };
+            }
         }
-        Err(_) => println!("There was an error, please try again"),
+    };
+
+    let _output = match cmd.wait_with_output() {
+        Ok(output) => output,
+        Err(_e) => {
+            println!("Failed to wait for command: {}", ans);
+            panic!()
+        }
     };
 
     Ok(())

@@ -20,6 +20,12 @@ If there multiple `.env` files - you will need to select from dropdown menu - wh
 
 If you do not need to load environment variables - use `dirshell --` command.
 
+### Modify command before run
+
+If you need to modify some common command before running - use `dirshell *` command.
+
+That could be useful if you need, for example, add some rarely used parameter or key to some common used command
+
 ### Platforms supported
 
 Currently app has prebuild binary for two platforms - Windows X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell.exe)) and Linux GNU X86_64 ([link](https://github.com/bogvak/dirshell/releases/latest/download/dirshell)).
