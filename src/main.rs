@@ -6,6 +6,7 @@ use std::fs::OpenOptions;
 use std::io;
 use std::io::prelude::*;
 use std::io::BufReader;
+use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
 
@@ -13,8 +14,20 @@ use inquire::InquireError;
 use inquire::Select;
 use inquire::Text;
 
+use reqwest;
+use reqwest::Error;
+use serde::Deserialize;
+
+use chrono::prelude::*;
+
 const EXCEPTION_COMMANDS: &'static [&'static str] = &["echo"];
 static COM_HISTORY_FILENAME: &str = ".comhistory";
+
+#[derive(Debug, Deserialize)]
+struct Release {
+    name: String,
+    tag_name: String,
+}
 
 fn get_child_process(
     dirstring: &str,
@@ -169,9 +182,64 @@ fn get_env_variables_from_file() -> Option<HashMap<String, String>> {
     )
 }
 
-fn main() -> std::io::Result<()> {
-    // Getting commandline arguments
+fn get_marker_modifed_date(marker: &PathBuf) -> String {
+    let metadata = fs::metadata(marker).unwrap();
+    let creation_time = metadata.modified().unwrap();
+    let datetime: DateTime<Local> = DateTime::from(creation_time);
+    return datetime.format("%Y-%m-%d").to_string();
+}
 
+fn if_need_to_check_new_version() -> bool {
+    let mut marker = env::temp_dir();
+
+    marker.push("dirshell.marker");
+    if marker.exists() {
+        let marker_date = get_marker_modifed_date(&marker);
+        let today = Local::now();
+        let today_date = today.format("%Y-%m-%d").to_string();
+        if marker_date == today_date {
+            return false;
+        }
+        fs::remove_file(&marker).expect("Can't create marker");
+    }
+    File::create(&marker).expect("Can't create marker");
+    return true;
+}
+
+fn get_latest_available_release() -> Result<bool, Error> {
+    if !if_need_to_check_new_version() {
+        return Ok(true);
+    };
+
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    let owner = "bogvak";
+    let repo = "dirshell";
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/releases/latest",
+        owner, repo
+    );
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(&url)
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("User-Agent", "dirshell")
+        .send()?;
+    let latest_release_struct: Release = response.json()?;
+    let release_name = &latest_release_struct.name[1..];
+
+    if release_name != current_version {
+        println!("\x1b[0;31mThere is a new version available: {}\x1b[0m", release_name);
+        println!("You may download new version from project GitHub repository:");
+        println!("\x1b[0;33mhttps://github.com/bogvak/dirshell/releases\x1b[0m")
+    }
+    Ok(true)
+}
+fn main() -> std::io::Result<()> {
+    // Checking last available release
+    let _ = get_latest_available_release();
+
+    // Getting commandline arguments
     let mut args: Vec<String> = env::args().collect();
     args.drain(0..1);
     let mut mergedargs = args.join(" "); //.trim();
