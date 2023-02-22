@@ -4,15 +4,14 @@ use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::process::Child;
 use std::process::Command;
 
 use inquire::InquireError;
 use inquire::Select;
 use inquire::Text;
-
 
 const EXCEPTION_COMMANDS: &'static [&'static str] = &["echo"];
 static COM_HISTORY_FILENAME: &str = ".comhistory";
@@ -152,10 +151,11 @@ fn get_env_variables_from_file() -> Option<HashMap<String, String>> {
         &env_files[0]
     } else {
         let contents: Vec<&str> = env_files.iter().map(|s| &**s).collect();
-        let env_file_name_select: Result<&str, InquireError> = Select::new("envfile::", contents).prompt();        
+        let env_file_name_select: Result<&str, InquireError> =
+            Select::new("envfile::", contents).prompt();
         match env_file_name_select {
             Ok(choice) => choice,
-            Err(_) => return None
+            Err(_) => return None,
         }
     };
 
@@ -227,6 +227,11 @@ fn main() -> std::io::Result<()> {
         exit("ok");
     }
 
+    // Create copy for content for further saving and sort vector
+    let mut contents_copy: Vec<String> = contents.iter().map(|&s| s.to_string()).collect();
+    contents_copy.sort();
+
+    // Show select dialog
     let mut ans = Select::new(">>", contents).prompt().unwrap_or_default();
     // if ans.is_empty() { exit("ok") };
     let inp = if needed_to_edit_command {
@@ -236,8 +241,10 @@ fn main() -> std::io::Result<()> {
     } else {
         "".to_string()
     };
-    ans = if needed_to_edit_command {&inp} else {ans};
-    if ans.is_empty() { exit("ok") };
+    ans = if needed_to_edit_command { &inp } else { ans };
+    if ans.is_empty() {
+        exit("ok")
+    };
 
     // looking for .env files in current directory
     let env_hash = if !ignore_env {
@@ -248,6 +255,19 @@ fn main() -> std::io::Result<()> {
     } else {
         HashMap::new()
     };
+
+    // Remove selected, sort lines, insert selected as first element, write back to file
+    if let Some(index) = contents_copy.iter().position(|el| *el == ans) {
+        contents_copy.remove(index);
+        contents_copy.insert(0, ans.to_string());
+        let mut file = File::create(COM_HISTORY_FILENAME).expect("Failed to create file");
+        for line in &contents_copy {
+            file.write_all(line.as_bytes())
+                .expect("Failed to write to file");
+            file.write_all(b"\n").expect("Failed to write to file");
+        }
+    } else {
+    }
 
     println!("{}", &ans);
     let cmd = match get_child_process(&dirstring, ans, &env_hash) {
